@@ -1,0 +1,73 @@
+%% HYDROGEN ATOM ORBITALS
+clear
+clc
+% Declations 
+ao = 0.529e-10;             %Bhor radus of Hydrogen
+
+%currently decleared in radians
+psi_100 = @(r, theta, phi) exp(-r/ao)*1/(sqrt(pi)*ao^(3/2));
+psi_210 = @(r, theta, phi) (r/ao)*exp(-r/(2*ao))*cos(theta)*1/(4*sqrt(2*pi)*ao^(3/2));
+
+N = 100; %number of samples to take.
+
+x = linspace(-10*ao,10*ao, N); %values to test over 100 pts
+y = linspace(-10*ao,10*ao, N);
+z = linspace(-10*ao,10*ao, N);
+
+psi_1 = zeros(1, N);
+Va = zeros(N, N, N);
+Vb = zeros(N, N, N);
+
+for a = 1:length(x)
+    for b = 1:length(x)
+        for c = 1:length(x)
+            [theta,rho,z] = cart2pol(a, b, c);
+            Va(a, b, c) = psi_100(z, rho, theta);
+            Vb(a, b, c) = psi_210(z, rho, theta);
+        end
+    end
+end
+%% Isosurface plotting code
+plotty = abs(1/sqrt(2) *(Va+Vb));
+
+[x,y,z,plotty] = flow;
+probdensity = 0;
+
+ figure('Name', 'Va');
+% title('Va');
+isosurface(flow, probdensity, sign(flow));
+view(45, 45);
+material dull
+colormap([1 0 1; 1 0 0.3])
+xticklabels('');
+yticklabels('');
+zticklabels('');
+set(gcf,'color', 'w');
+set(gca,'CameraViewAngle', 45, 'Projection', 'perspective');
+xlabel('$x$', 'interpreter', 'latex', 'FontSize', 20)
+ylabel('$y$', 'interpreter', 'latex', 'FontSize', 20)
+zlabel('$z$', 'interpreter', 'latex', 'FontSize', 20)
+camzoom(4)
+axis equal
+axis vis3d;
+
+%% Isosurface plotting code
+[x,y,z,Vb] = flow;
+probdensity = -3;
+
+figure('Name', 'Vb');
+isosurface(flow, probdensity, sign(flow));
+view(45, 45);
+material dull
+colormap([0 0 1; 1 0.5 0])
+xticklabels('');
+yticklabels('');
+zticklabels('');
+set(gcf,'color', 'w');
+set(gca,'CameraViewAngle', 45, 'Projection', 'perspective');
+xlabel('$x$', 'interpreter', 'latex', 'FontSize', 20)
+ylabel('$y$', 'interpreter', 'latex', 'FontSize', 20)
+zlabel('$z$', 'interpreter', 'latex', 'FontSize', 20)
+camzoom(4)
+axis equal
+axis vis3d;
