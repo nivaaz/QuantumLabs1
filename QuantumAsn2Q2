@@ -1,44 +1,66 @@
 %% HYDROGEN ATOM ORBITALS
 clear
 clc
-% Declations 
-ao = 0.529e-10;             %Bhor radus of Hydrogen
+q = 1.602e-19;                                          %charge of an electron!
+ao = 0.529e-10;                                         %Bhor radus of Hydrogen
+N = 100;                                                %number of samples to take.
 
-%currently decleared in radians
-psi_100 = @(r, theta, phi) exp(-r/ao)*1/(sqrt(pi)*ao^(3/2));
-psi_210 = @(r, theta, phi) (r/ao)*exp(-r/(2*ao))*cos(theta)*1/(4*sqrt(2*pi)*ao^(3/2));
-
-N = 100; %number of samples to take.
-
-x = linspace(-10*ao,10*ao, N); %values to test over 100 pts
+x = linspace(-10*ao,10*ao, N);                          %values to test over 100 pts
 y = linspace(-10*ao,10*ao, N);
 z = linspace(-10*ao,10*ao, N);
 
-psi_1 = zeros(1, N);
-Va = zeros(N, N, N);
+psi_1 = zeros(1, N);                                    %final array.
+
+Va = zeros(N, N, N);                                    %declare arrays for results.
 Vb = zeros(N, N, N);
 
-for a = 1:length(x)
-    for b = 1:length(x)
-        for c = 1:length(x)
-            [theta,rho,z] = cart2pol(a, b, c);
-            Va(a, b, c) = psi_100(z, rho, theta);
-            Vb(a, b, c) = psi_210(z, rho, theta);
+len = length(x);
+
+% orbital wave functions.
+psi_100 = @(r, theta, phi) exp(-r/ao)*1/(sqrt(pi)*ao^(3/2));
+psi_210 = @(r, theta, phi) (r/ao).*cos(theta).*exp(-r./(2*ao)).*1/(4*sqrt(2*pi)*ao^(3/2));
+
+
+%evaluating the wave function distribution
+for a = 1:len                                           %x loop
+    for b = 1:len                                       %y loop
+        for c = 1:len                                   %z loop
+            [theta,phi,r] = cart2sph(x(a), y(b), z(c)); %making them polar coord
+            Va(a, b, c) = psi_100(r, theta, phi);       %sub in with polar coord
+            Vb(a, b, c) = psi_210(r, theta, phi);
         end
     end
 end
+
+%various wavfunctions to be plotted.
+phia = abs(Va).^2;
+phib = abs(Vb).^2;
+phic = abs(1/sqrt(2) .* (Va+1*j*Vb)).^2;
+phid = abs(1/sqrt(2) .* (Va+Vb)).^2;
+
 %% Isosurface plotting code
-plotty = abs(1/sqrt(2) *(Va+Vb));
+close all
 
-[x,y,z,plotty] = flow;
-probdensity = 0;
+probdensity = 1e27;
 
- figure('Name', 'Va');
-% title('Va');
-isosurface(flow, probdensity, sign(flow));
-view(45, 45);
+figure('Name', 'PHI A');
+isosurface(phia, 1e27);
+colormap([0 0 1; 0 0 1])
+
+figure('Name', 'PHI B');
+isosurface(phib, 1e27);
+colormap([0 0 1; 1 0.5 0.5])
+
+figure('Name', 'PHI C');
+isosurface(phic, 1e27);
+colormap([0 0 1; 0.2 0.5 0])
+
+figure('Name', 'PHI D');
+isosurface(phid, 1e27);
+
+view(5, 15);
 material dull
-colormap([1 0 1; 1 0 0.3])
+colormap([0 0 1; 1 0.5 0]);
 xticklabels('');
 yticklabels('');
 zticklabels('');
@@ -51,23 +73,126 @@ camzoom(4)
 axis equal
 axis vis3d;
 
-%% Isosurface plotting code
-[x,y,z,Vb] = flow;
-probdensity = -3;
+%% 2.1 
+clc
+close all
+hbar = 1.054e-34;
+delE = 4.372e-6;  
+n = 2;
+Eo = 13.6;                                  %electron volts
+E1s = 0;
+E2p = -Eo*(1/4 - 1);                        %electron volts.
+E20 = E2p-delE/2;
 
-figure('Name', 'Vb');
-isosurface(flow, probdensity, sign(flow));
-view(45, 45);
-material dull
-colormap([0 0 1; 1 0.5 0])
-xticklabels('');
-yticklabels('');
-zticklabels('');
-set(gcf,'color', 'w');
-set(gca,'CameraViewAngle', 45, 'Projection', 'perspective');
-xlabel('$x$', 'interpreter', 'latex', 'FontSize', 20)
-ylabel('$y$', 'interpreter', 'latex', 'FontSize', 20)
-zlabel('$z$', 'interpreter', 'latex', 'FontSize', 20)
-camzoom(4)
-axis equal
-axis vis3d;
+H = [E1s 0; 0 E2p];                         %hamiltonian
+
+phi_0 = 1/sqrt(2) *[1 1]';                  %superposition of s1 and p2z orbitals.
+
+tf = 1e-12;                                  %time between samples.
+t_plot = linspace(0, tf, 100);               %array for time.
+T = length(t_plot);                         %how many samples (time)
+dt = tf/(T-1);
+
+U = expm(-j*H*dt/hbar);                     %operator
+phi_t(:, 1) = phi_0;                        %inital state 
+
+for t = 2:T                                 %time evolution.
+    phi_t(:, t) = U*phi_t(:, t-1);
+end
+
+plot(t_plot, phi_t(1:length(t_plot))); title('Phi evolution');
+
+  for t = 1:1:T                            %attempt to do it as a struct!
+      V_plot{t} = phi_t(1, t)*phia + phi_t(2, t)*phib;
+  end
+clc
+close all
+filename = 'filename.gif';
+
+t = linspace(0, 1, 100);
+
+h = figure();
+
+% for i = 1:10:length(t)                            %code didn't work??
+%     a = phi_t(1, i)*Va + phi_t(2, i)*Vb;
+%     isosurface(abs(a).^2, 1e27)
+%     frame = getframe(h);
+%     im = frame2im(frame);
+%     [imind,cm] = rgb2ind(im,256);
+%     % Write to the GIF File
+%     if i == 1
+%         imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
+%     else
+%         % you can adjust the delay time to choose the frame rate of your gif
+%         imwrite(imind,cm,filename,'gif','WriteMode','append', 'DelayTime', 0.1); 
+%     end
+% end
+
+
+for  i = 1:5:length(t)                                  % this code needs to save?
+    a = phi_t(1, i)*Va + phi_t(2, i)*Vb;
+    p = patch(isosurface(abs(a).^2, 1e27)); % Where 42 is the isovalue
+    isonormals(abs(a).^2, p)
+    set(p, 'FaceColor', 'blue', 'EdgeColor', 'none');
+    daspect([1,1,1])
+    view(45, 15);
+    view(3); axis tight
+    camlight; lighting gouraud
+    pause(0.1)
+end
+%% 2.3
+close all
+clc
+E = 1e-9;                       %intensity of the electric field.
+len = 100;                      %length of everything!
+omega = E2p/hbar;
+
+%calulating phi_a, b for z only.
+ Va_z = zeros(1,len);
+ Vb_z = zeros(1,len);
+ z = linspace(-10*ao, 10*ao, 100)
+ 
+ %calculation for phi_z 
+ for c = 1:len                                   
+    [theta,phi,r] = cart2sph(0, 0, z(c));   %making them polar coord
+    Va_z(c) = psi_100(r, theta, phi);       %sub in with polar coord
+    Vb_z(c) = psi_210(r, theta, phi);
+ end
+ 
+ %plots the output of Vaz and Vbz and their product!
+%  subplot(3, 1, 1);
+%  plot(1:len, Va_z, 'b'); title('Va z'); subplot(3, 1, 2);
+%  plot(1:len, Vb_z, 'r'); title(' Va_b');
+%  subplot(3, 1, 3);
+%  plot(1:len, Vb_z'*Va_z); title('Product')
+ 
+%putting y and x to zero.
+con = 1/(sqrt(pi)*ao^(3/2)) * 1/ao * 1/(4*sqrt(2*pi)*ao^(3/2)); %consatnt found outside the integral
+phi_prime = @(z) z.*exp(-z/(2*ao)).*exp(-z./(ao));              %function of x with both orbitals.
+ 
+%finding the integral to get pa
+phi_int = integral(phi_prime,-10*ao, 10*ao)                     %integrating pa
+p_ba = phi_int * con;                                           %multiplying by the coefficients.
+
+%expression for the new hamiltonian & coupling.
+H_ba =@(t) -p_ba * E * cos (omega*t);                           
+H_new =@(t) H + H_ba(t)*eye(2)
+
+%% 2.4
+clc
+close all
+t_plot = 1:100;                 %time for plotting
+p_t = zeros(1, 100);            %declaration of size of evolution
+
+phi_0 = [1 0]';                 %inital state.
+p_t = phi_0;                    % evolution array
+dt = 1e-6;                      %time intervals.
+U_ba = expm(j*H_new(dt)/hbar);  %operator.
+
+for count = 2:100
+    p_t(:, count) = U_ba*p_t(:, count-1)
+end
+
+plot(t_plot, abs(p_t).^2, 'm'); title('Evolution of (1, 0)'); ylabel('expectation');
+    
+    
